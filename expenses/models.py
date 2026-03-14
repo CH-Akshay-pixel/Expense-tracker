@@ -26,7 +26,7 @@ class Expense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     title = models.CharField(max_length=200)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=1)
     type = models.CharField(max_length=10, choices=STATUS_CHOICES, default='expense')
     date = models.DateField()
     note = models.TextField(blank=True)
