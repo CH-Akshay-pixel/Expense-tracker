@@ -6,7 +6,7 @@ from .forms import RegisterForm
 
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect('login')
+        return redirect('dashboard')
 
     if request.method == 'POST':
         form = RegisterForm(request.POST)
