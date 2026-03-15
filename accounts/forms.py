@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from .models import UserProfile
 
 
 class RegisterForm(forms.Form):
@@ -27,3 +28,20 @@ class RegisterForm(forms.Form):
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError("Passwords do not match!")
         return cleaned_data
+
+
+class ProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['profile_picture', 'currency', 'monthly_budget']
+        widgets = {
+            'currency': forms.Select(choices=[
+                ('USD', '$ USD'),
+                ('EUR', '€ EUR'),
+                ('GBP', '£ GBP'),
+                ('INR', '₹ INR'),
+            ]),
+            'monthly_budget': forms.NumberInput(attrs={
+                'placeholder': 'Enter monthly budget'
+            }),
+        }
