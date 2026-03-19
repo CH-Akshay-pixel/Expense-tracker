@@ -88,12 +88,30 @@ def expense_list_view(request):
         user=request.user
     ).order_by('-date')
 
-    try:
-        currency = request.user.userprofile.currency
-    except:
-        currency = 'USD'
+    # --- Search ---
+    search = request.GET.get('search', '')
+    if search:
+        expenses = expenses.filter(title__icontains=search)
 
-    # Totals
+    # --- Filter by Type ---
+    filter_type = request.GET.get('type', '')
+    if filter_type in ['income', 'expense']:
+        expenses = expenses.filter(type=filter_type)
+
+    # --- Filter by Category ---
+    filter_category = request.GET.get('category', '')
+    if filter_category:
+        expenses = expenses.filter(category__id=filter_category)
+
+    # --- Filter by Date Range ---
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if date_from:
+        expenses = expenses.filter(date__gte=date_from)
+    if date_to:
+        expenses = expenses.filter(date__lte=date_to)
+
+    # --- Totals (after filtering) ---
     total_expenses = expenses.filter(
         type='expense'
     ).aggregate(total=Sum('amount'))['total'] or 0
@@ -102,14 +120,35 @@ def expense_list_view(request):
         type='income'
     ).aggregate(total=Sum('amount'))['total'] or 0
 
+    # --- Pagination ---
+    from django.core.paginator import Paginator
+    paginator = Paginator(expenses, 10)  # 10 per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # --- User Categories for filter dropdown ---
+    categories = Category.objects.filter(user=request.user)
+
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+
     context = {
-        'expenses': expenses,
+        'page_obj': page_obj,
+        'expenses': page_obj,
         'currency': currency,
         'total_expenses': total_expenses,
         'total_income': total_income,
+        'categories': categories,
+        'search': search,
+        'filter_type': filter_type,
+        'filter_category': filter_category,
+        'date_from': date_from,
+        'date_to': date_to,
     }
-    return render(request, 'expenses/expense_list.html', context)
 
+    return render(request, 'expenses/expense_list.html', context)
 @login_required
 def edit_expense_view(request, pk):
     expense = get_object_or_404(Expense, id=pk, user=request.user)

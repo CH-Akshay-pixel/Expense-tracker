@@ -53,6 +53,83 @@
     </div>
 </div>
 
+<!-- Search & Filter -->
+<div class="card mb-4 p-3">
+    <form method="GET">
+        <div class="row g-2">
+
+            <!-- Search -->
+            <div class="col-md-3">
+                <input type="text"
+                       name="search"
+                       class="form-control"
+                       placeholder="🔍 Search by title..."
+                       value="{{ search }}">
+            </div>
+
+            <!-- Type Filter -->
+            <div class="col-md-2">
+                <select name="type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="expense"
+                        {% if filter_type == 'expense' %}selected{% endif %}>
+                        Expense
+                    </option>
+                    <option value="income"
+                        {% if filter_type == 'income' %}selected{% endif %}>
+                        Income
+                    </option>
+                </select>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="col-md-2">
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                        {% if filter_category == cat.id|stringformat:"s" %}
+                            selected
+                        {% endif %}>
+                        {{ cat.icon }} {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date From -->
+            <div class="col-md-2">
+                <input type="date"
+                       name="date_from"
+                       class="form-control"
+                       value="{{ date_from }}"
+                       placeholder="From date">
+            </div>
+
+            <!-- Date To -->
+            <div class="col-md-2">
+                <input type="date"
+                       name="date_to"
+                       class="form-control"
+                       value="{{ date_to }}"
+                       placeholder="To date">
+            </div>
+
+            <!-- Buttons -->
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i>
+                </button>
+                <a href="{% url 'expense_list' %}"
+                   class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+
+        </div>
+    </form>
+</div>
+
 <!-- Transactions Table -->
 <div class="card">
     <div class="card-body p-0">
@@ -115,12 +192,62 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="d-flex justify-content-between align-items-center p-3">
+            <small class="text-muted">
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+                of {{ page_obj.paginator.count }} transactions
+            </small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+
+                    <!-- Previous -->
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link"
+                           href="?page={{ page_obj.previous_page_number }}&search={{ search }}&type={{ filter_type }}&category={{ filter_category }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                            &laquo;
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <!-- Page Numbers -->
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item
+                        {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link"
+                           href="?page={{ num }}&search={{ search }}&type={{ filter_type }}&category={{ filter_category }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endfor %}
+
+                    <!-- Next -->
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="nav-link"
+                           href="?page={{ page_obj.next_page_number }}&search={{ search }}&type={{ filter_type }}&category={{ filter_category }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                            &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
         {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-            <p class="text-muted">No transactions yet!</p>
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No transactions found!</p>
+            <a href="{% url 'expense_list' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-times me-1"></i>Clear Filters
+            </a>
             <a href="{% url 'add_expense' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>Add Your First Transaction
+                <i class="fas fa-plus me-2"></i>Add Transaction
             </a>
         </div>
         {% endif %}
