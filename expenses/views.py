@@ -108,5 +108,44 @@ def expense_list_view(request):
         'total_expenses': total_expenses,
         'total_income': total_income,
     }
-
     return render(request, 'expenses/expense_list.html', context)
+
+@login_required
+def edit_expense_view(request, pk):
+    expense = get_object_or_404(Expense, id=pk, user=request.user)
+
+    if request.method == 'POST':
+        form = ExpenseForm(request.user, request.POST, instance=expense)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Transaction updated successfully!')
+            return redirect('expense_list')
+        else:
+            messages.error(request, 'Please fix the errors below.')
+    else:
+        form = ExpenseForm(request.user, instance=expense)
+
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+
+    return render(request, 'expenses/edit_expense.html', {
+        'form': form,
+        'expense': expense,
+        'currency': currency
+    })
+
+
+@login_required
+def delete_expense_view(request, pk):
+    expense = get_object_or_404(Expense, id=pk, user=request.user)
+
+    if request.method == 'POST':
+        expense.delete()
+        messages.success(request, 'Transaction deleted successfully!')
+        return redirect('expense_list')
+
+    return render(request, 'expenses/delete_expense.html', {
+        'expense': expense
+    })
