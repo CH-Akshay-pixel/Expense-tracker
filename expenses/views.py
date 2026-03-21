@@ -284,3 +284,149 @@ def summary_view(request):
     }
 
     return render(request, 'expenses/summary.html', context)
+
+@login_required
+def analytics_view(request):
+    from django.db.models import Sum, Count
+    from datetime import datetime, date
+    from dateutil.relativedelta import relativedelta
+    import json
+
+    today = date.today()
+
+    # --- Pie Chart Data (expenses by category) ---
+    category_expenses = Expense.objects.filter(
+        user=request.user,
+        type='expense',
+        date__month=today.month,
+        date__year=today.year
+    ).values(
+        'category__name',
+        'category__icon'
+    ).annotate(
+        total=Sum('amount')
+    ).order_by('-total')
+
+    pie_labels = []
+    pie_data = []
+    pie_colors = [
+        '#4f46e5', '#7c3aed', '#db2777',
+        '#dc2626', '#d97706', '#16a34a',
+        '#0891b2', '#6366f1', '#ec4899'
+    ]
+
+    for cat in category_expenses:
+        pie_labels.append(
+            cat['category__name'] or 'Uncategorized'
+        )
+        pie_data.append(float(cat['total']))
+
+    # --- Line Chart Data (daily spending this month) ---
+    import calendar
+    days_in_month = calendar.monthrange(
+        today.year, today.month
+    )[1]
+
+    daily_labels = []
+    daily_expenses = []
+    daily_income = []
+
+    for day in range(1, days_in_month + 1):
+        daily_labels.append(str(day))
+
+        day_expense = Expense.objects.filter(
+            user=request.user,
+            type='expense',
+            date__year=today.year,
+            date__month=today.month,
+            date__day=day
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        day_income = Expense.objects.filter(
+            user=request.user,
+            type='income',
+            date__year=today.year,
+            date__month=today.month,
+            date__day=day
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        daily_expenses.append(float(day_expense))
+        daily_income.append(float(day_income))
+
+    # --- Top 5 Spending Categories (all time) ---
+    top_categories = Expense.objects.filter(
+        user=request.user,
+        type='expense'
+    ).values(
+        'category__name',
+        'category__icon'
+    ).annotate(
+        total=Sum('amount'),
+        count=Count('id')
+    ).order_by('-total')[:5]
+
+    # --- Monthly Comparison (last 6 months) ---
+    monthly_labels = []
+    monthly_expenses_data = []
+    monthly_income_data = []
+
+    for i in range(5, -1, -1):
+        d = today - relativedelta(months=i)
+        monthly_labels.append(d.strftime('%b %Y'))
+
+        m_exp = Expense.objects.filter(
+            user=request.user,
+            type='expense',
+            date__month=d.month,
+            date__year=d.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        m_inc = Expense.objects.filter(
+            user=request.user,
+            type='income',
+            date__month=d.month,
+            date__year=d.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        monthly_expenses_data.append(float(m_exp))
+        monthly_income_data.append(float(m_inc))
+
+    # --- Overall Stats ---
+    total_transactions = Expense.objects.filter(
+        user=request.user
+    ).count()
+
+    total_spent_ever = Expense.objects.filter(
+        user=request.user,
+        type='expense'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    total_earned_ever = Expense.objects.filter(
+        user=request.user,
+        type='income'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+
+    context = {
+        'currency': currency,
+        'pie_labels': json.dumps(pie_labels),
+        'pie_data': json.dumps(pie_data),
+        'pie_colors': json.dumps(pie_colors[:len(pie_data)]),
+        'daily_labels': json.dumps(daily_labels),
+        'daily_expenses': json.dumps(daily_expenses),
+        'daily_income': json.dumps(daily_income),
+        'monthly_labels': json.dumps(monthly_labels),
+        'monthly_expenses_data': json.dumps(monthly_expenses_data),
+        'monthly_income_data': json.dumps(monthly_income_data),
+        'top_categories': top_categories,
+        'total_transactions': total_transactions,
+        'total_spent_ever': total_spent_ever,
+        'total_earned_ever': total_earned_ever,
+        'month_name': today.strftime('%B %Y'),
+    }
+
+    return render(request, 'expenses/analytics.html', context)
