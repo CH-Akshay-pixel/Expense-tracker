@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Assistant - Expense Tracker{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-10">
+
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h4 class="fw-bold">
+                <i class="fas fa-robot text-primary me-2"></i>
+                AI Financial Assistant
+            </h4>
+            <p class="text-muted">
+                Powered by Claude AI — Get insights, recommendations and answers!
+            </p>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- AI Insights Card -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Spending Insights
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">
+                            Get AI analysis of your spending patterns
+                            this month.
+                        </p>
+                        <button onclick="getInsights()"
+                                class="btn btn-warning w-100 mb-3"
+                                id="insightsBtn">
+                            <i class="fas fa-magic me-2"></i>
+                            Generate Insights
+                        </button>
+                        <div id="insightsResult" class="d-none">
+                            <div class="card bg-light p-3">
+                                <p id="insightsText" class="mb-0"
+                                   style="white-space: pre-line;">
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budget Recommendations -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="fas fa-chart-pie text-success me-2"></i>
+                            Budget Recommendations
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">
+                            Get a personalized budget plan based on
+                            your spending history.
+                        </p>
+                        <button onclick="getBudget()"
+                                class="btn btn-success w-100 mb-3"
+                                id="budgetBtn">
+                            <i class="fas fa-calculator me-2"></i>
+                            Get Recommendations
+                        </button>
+                        <div id="budgetResult" class="d-none">
+                            <div class="card bg-light p-3">
+                                <p id="budgetText" class="mb-0"
+                                   style="white-space: pre-line;">
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Chatbot -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="fas fa-comments text-primary me-2"></i>
+                            Chat with AI Assistant
+                        </h5>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- Chat Messages -->
+                        <div id="chatMessages"
+                             style="height:350px; overflow-y:auto;"
+                             class="mb-3 p-2">
+
+                            <!-- Welcome Message -->
+                            <div class="d-flex mb-3">
+                                <div class="rounded-circle bg-primary d-flex
+                                            align-items-center justify-content-center me-2"
+                                     style="width:35px; height:35px; min-width:35px;">
+                                    <i class="fas fa-robot text-white small"></i>
+                                </div>
+                                <div class="card bg-light p-2 px-3">
+                                    <p class="mb-0 small">
+                                        👋 Hi! I'm your AI financial assistant.
+                                        Ask me anything about your expenses!
+                                        <br><br>
+                                        Try asking:
+                                        <br>• "How much did I spend this month?"
+                                        <br>• "What's my biggest expense category?"
+                                        <br>• "Am I within my budget?"
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Chat Input -->
+                        <div class="input-group">
+                            <input type="text"
+                                   id="chatInput"
+                                   class="form-control"
+                                   placeholder="Ask anything about your finances..."
+                                   onkeypress="handleChatKeyPress(event)">
+                            <button class="btn btn-primary"
+                                    onclick="sendChat()">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Get AI Insights
+    function getInsights() {
+        const btn = document.getElementById('insightsBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...';
+        btn.disabled = true;
+
+        fetch('/ai/insights/')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('insightsText').textContent = data.insights;
+            document.getElementById('insightsResult').classList.remove('d-none');
+            btn.innerHTML = '<i class="fas fa-sync me-2"></i>Refresh Insights';
+            btn.disabled = false;
+        })
+        .catch(err => {
+            btn.innerHTML = '<i class="fas fa-magic me-2"></i>Generate Insights';
+            btn.disabled = false;
+            alert('Error getting insights. Check your API key!');
+        });
+    }
+
+    // Get Budget Recommendations
+    function getBudget() {
+        const btn = document.getElementById('budgetBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...';
+        btn.disabled = true;
+
+        fetch('/ai/budget/')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('budgetText').textContent = data.recommendation;
+            document.getElementById('budgetResult').classList.remove('d-none');
+            btn.innerHTML = '<i class="fas fa-sync me-2"></i>Refresh';
+            btn.disabled = false;
+        })
+        .catch(err => {
+            btn.innerHTML = '<i class="fas fa-calculator me-2"></i>Get Recommendations';
+            btn.disabled = false;
+            alert('Error getting recommendations. Check your API key!');
+        });
+    }
+
+    // Handle Enter key in chat
+    function handleChatKeyPress(event) {
+        if (event.key === 'Enter') sendChat();
+    }
+
+    // Send Chat Message
+    function sendChat() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Add user message
+        addMessage(message, 'user');
+        input.value = '';
+
+        // Add loading message
+        const loadingId = 'loading-' + Date.now();
+        addLoadingMessage(loadingId);
+
+        fetch('/ai/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Remove loading
+            document.getElementById(loadingId)?.remove();
+            // Add AI response
+            addMessage(data.response || data.error, 'ai');
+        })
+        .catch(err => {
+            document.getElementById(loadingId)?.remove();
+            addMessage('Sorry, I encountered an error. Please try again!', 'ai');
+        });
+    }
+
+    // Add message to chat
+    function addMessage(text, sender) {
+        const chatMessages = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `d-flex mb-3 ${sender === 'user' ? 'justify-content-end' : ''}`;
+
+        if (sender === 'ai') {
+            div.innerHTML = `
+                <div class="rounded-circle bg-primary d-flex align-items-center
+                            justify-content-center me-2"
+                     style="width:35px; height:35px; min-width:35px;">
+                    <i class="fas fa-robot text-white small"></i>
+                </div>
+                <div class="card bg-light p-2 px-3" style="max-width:80%">
+                    <p class="mb-0 small" style="white-space:pre-line">${text}</p>
+                </div>`;
+        } else {
+            div.innerHTML = `
+                <div class="card bg-primary p-2 px-3" style="max-width:80%">
+                    <p class="mb-0 small text-white">${text}</p>
+                </div>`;
+        }
+
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Add loading indicator
+    function addLoadingMessage(id) {
+        const chatMessages = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = 'd-flex mb-3';
+        div.innerHTML = `
+            <div class="rounded-circle bg-primary d-flex align-items-center
+                        justify-content-center me-2"
+                 style="width:35px; height:35px; min-width:35px;">
+                <i class="fas fa-robot text-white small"></i>
+            </div>
+            <div class="card bg-light p-2 px-3">
+                <p class="mb-0 small">
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    Thinking...
+                </p>
+            </div>`;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(
+                        cookie.substring(name.length + 1)
+                    );
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

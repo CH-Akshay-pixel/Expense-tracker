@@ -108,4 +108,61 @@
         }
     });
 </script>
+<script>
+    // Set today's date as default
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[type="date"]');
+        if (dateInput && !dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+    });
+
+    // AI Auto Categorization
+    const titleInput = document.querySelector('input[name="title"]');
+    const categorySelect = document.querySelector('select[name="category"]');
+
+    // Add AI badge next to category
+    const categoryLabel = document.querySelector('label[for="id_category"]');
+
+    let typingTimer;
+    titleInput.addEventListener('input', function() {
+        clearTimeout(typingTimer);
+        const title = this.value.trim();
+
+        if (title.length > 3) {
+            typingTimer = setTimeout(() => {
+                // Show loading
+                categorySelect.style.border = '2px solid #4f46e5';
+
+                fetch('/ai/categorize/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ title: title })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.category_id) {
+                        categorySelect.value = data.category_id;
+                        categorySelect.style.border = '2px solid #22c55e';
+
+                        // Show AI suggestion badge
+                        let badge = document.getElementById('ai-badge');
+                        if (!badge) {
+                            badge = document.createElement('small');
+                            badge.id = 'ai-badge';
+                            badge.className = 'text-success';
+                            categorySelect.parentNode.appendChild(badge);
+                        }
+                        badge.innerHTML = `🤖 AI suggested: <strong>${data.category}</strong>`;
+                    }
+                })
+                .catch(err => console.log('AI categorization error:', err));
+            }, 800); // Wait 800ms after typing stops
+        }
+    });
+</script>
 {% endblock %}

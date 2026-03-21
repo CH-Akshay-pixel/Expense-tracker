@@ -5,6 +5,9 @@ from django.db.models import Sum
 from datetime import datetime
 from .models import Expense, Category
 from .forms import ExpenseForm
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+import json
 
 
 @login_required
@@ -430,3 +433,195 @@ def analytics_view(request):
     }
 
     return render(request, 'expenses/analytics.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def ai_categorize_view(request):
+    """Auto categorize expense by title"""
+    try:
+        data = json.loads(request.body)
+        title = data.get('title', '')
+
+        if not title:
+            return JsonResponse({'error': 'Title is required'}, status=400)
+
+        # Get user categories
+        categories = Category.objects.filter(user=request.user)
+        category_names = [cat.name for cat in categories]
+
+        if not category_names:
+            return JsonResponse({'category': 'Other'})
+
+        from .ai_service import categorize_expense
+        suggested_category = categorize_expense(title, category_names)
+
+        # Find matching category id
+        category_id = None
+        for cat in categories:
+            if cat.name.lower() == suggested_category.lower():
+                category_id = cat.id
+                break
+
+        return JsonResponse({
+            'category': suggested_category,
+            'category_id': category_id
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def ai_insights_view(request):
+    """Get AI spending insights"""
+    from django.db.models import Sum
+    from .ai_service import get_spending_insights
+
+    # Get this month's data
+    from datetime import datetime
+    today = datetime.today()
+
+    category_data = Expense.objects.filter(
+        user=request.user,
+        type='expense',
+        date__month=today.month,
+        date__year=today.year
+    ).values('category__name').annotate(
+        total=Sum('amount')
+    )
+
+    expenses_data = {
+        item['category__name'] or 'Uncategorized': float(item['total'])
+        for item in category_data
+    }
+
+    try:
+        budget = request.user.userprofile.monthly_budget
+        currency = request.user.userprofile.currency
+    except:
+        budget = 0
+        currency = 'USD'
+
+    if not expenses_data:
+        return JsonResponse({
+            'insights': 'No expense data found for this month. Start adding expenses to get AI insights!'
+        })
+
+    insights = get_spending_insights(expenses_data, currency, budget)
+    return JsonResponse({'insights': insights})
+
+
+@login_required
+def ai_budget_view(request):
+    """Get AI budget recommendations"""
+    from django.db.models import Sum
+    from .ai_service import get_budget_recommendation
+    from datetime import datetime
+
+    today = datetime.today()
+
+    # Last 3 months average
+    category_data = Expense.objects.filter(
+        user=request.user,
+        type='expense',
+    ).values('category__name').annotate(
+        total=Sum('amount')
+    )
+
+    expenses_data = {
+        item['category__name'] or 'Uncategorized': float(item['total'])
+        for item in category_data
+    }
+
+    # Total income
+    total_income = Expense.objects.filter(
+        user=request.user,
+        type='income',
+        date__month=today.month,
+        date__year=today.year
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+
+    recommendation = get_budget_recommendation(
+        expenses_data,
+        float(total_income),
+        currency
+    )
+
+    return JsonResponse({'recommendation': recommendation})
+
+
+@login_required
+@require_http_methods(["POST"])
+def ai_chat_view(request):
+    """AI chatbot for expense queries"""
+    from django.db.models import Sum
+    from .ai_service import chat_with_ai
+
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '')
+
+        if not user_message:
+            return JsonResponse({'error': 'Message is required'}, status=400)
+
+        # Build expense context
+        from datetime import datetime
+        today = datetime.today()
+
+        recent_expenses = Expense.objects.filter(
+            user=request.user
+        ).order_by('-date')[:10]
+
+        monthly_total = Expense.objects.filter(
+            user=request.user,
+            type='expense',
+            date__month=today.month,
+            date__year=today.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        monthly_income = Expense.objects.filter(
+            user=request.user,
+            type='income',
+            date__month=today.month,
+            date__year=today.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        try:
+            currency = request.user.userprofile.currency
+            budget = request.user.userprofile.monthly_budget
+        except:
+            currency = 'USD'
+            budget = 0
+
+        # Build context string
+        expenses_context = f"""
+Monthly Income: {currency} {monthly_income}
+Monthly Expenses: {currency} {monthly_total}
+Monthly Budget: {currency} {budget}
+
+Recent transactions:
+"""
+        for exp in recent_expenses:
+            expenses_context += f"- {exp.title}: {currency} {exp.amount} ({exp.type}) on {exp.date}\n"
+
+        response = chat_with_ai(user_message, expenses_context)
+        return JsonResponse({'response': response})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@login_required
+def ai_assistant_view(request):
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+    return render(request, 'expenses/ai_assistant.html', {
+        'currency': currency
+    })
