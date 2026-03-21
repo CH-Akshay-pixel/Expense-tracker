@@ -188,3 +188,99 @@ def delete_expense_view(request, pk):
     return render(request, 'expenses/delete_expense.html', {
         'expense': expense
     })
+
+@login_required
+def summary_view(request):
+    from django.db.models import Sum, Count
+    from datetime import datetime
+    import json
+
+    today = datetime.today()
+    month = today.month
+    year = today.year
+
+    # Get selected month/year from URL params
+    selected_month = int(request.GET.get('month', month))
+    selected_year = int(request.GET.get('year', year))
+
+    # All expenses for selected month
+    monthly_data = Expense.objects.filter(
+        user=request.user,
+        date__month=selected_month,
+        date__year=selected_year
+    )
+
+    # Total income & expenses
+    total_income = monthly_data.filter(
+        type='income'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    total_expenses = monthly_data.filter(
+        type='expense'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    balance = total_income - total_expenses
+
+    # Expenses by category
+    category_data = monthly_data.filter(
+        type='expense'
+    ).values(
+        'category__name',
+        'category__icon'
+    ).annotate(
+        total=Sum('amount'),
+        count=Count('id')
+    ).order_by('-total')
+
+    # Last 6 months data for trend
+    months_data = []
+    for i in range(5, -1, -1):
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        d = date.today() - relativedelta(months=i)
+        m_expenses = Expense.objects.filter(
+            user=request.user,
+            type='expense',
+            date__month=d.month,
+            date__year=d.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        m_income = Expense.objects.filter(
+            user=request.user,
+            type='income',
+            date__month=d.month,
+            date__year=d.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        months_data.append({
+            'month': d.strftime('%b'),
+            'expenses': float(m_expenses),
+            'income': float(m_income),
+        })
+
+    try:
+        currency = request.user.userprofile.currency
+    except:
+        currency = 'USD'
+
+    # Month choices for dropdown
+    month_names = [
+        'January', 'February', 'March', 'April',
+        'May', 'June', 'July', 'August',
+        'September', 'October', 'November', 'December'
+    ]
+
+    context = {
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'balance': balance,
+        'category_data': category_data,
+        'currency': currency,
+        'months_data': json.dumps(months_data),
+        'selected_month': selected_month,
+        'selected_year': selected_year,
+        'month_names': enumerate(month_names, 1),
+        'current_year': year,
+    }
+
+    return render(request, 'expenses/summary.html', context)
