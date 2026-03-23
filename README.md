@@ -134,7 +134,7 @@ GET /api/summary/ → Monthly summary & breakdown
 ## 👨‍💻 Author
 
 **Akshay Chintalapati**
-- GitHub: [@CH-Akshay](https://github.com/CH-Akshay)
+- GitHub: [@CH-Akshay-pixel](https://github.com/CH-Akshay-pixel)
 - Email: chintalapatiakshay@gmail.com
 
 ## 📄 License
